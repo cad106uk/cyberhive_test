@@ -1,3 +1,18 @@
+# Execution #
+
+### Server Side ###
+
+clone this git repo
+go to the server_code directory
+run `cargo run --release &`
+run `tail -f log_records.json`
+
+### Client Side ###
+
+clone this git repo
+go to the client_code/bin directoy
+run `source run.sh`
+
 # Config #
 
 Create a user called *serve* on the serve machine (87.254.5.232 coding_test_2_2) 
