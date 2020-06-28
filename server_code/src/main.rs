@@ -1,23 +1,34 @@
+use async_trait::async_trait;
 use serde_json::Value;
-use tokio::io::File;
+use tokio::fs::{File, OpenOptions};
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 use tokio::sync::mpsc;
 
+#[async_trait]
 trait RecordJson {
-    fn append_json_row(&mut self, input: Vec<u8>) -> Result<(), Box<dyn std::error::Error>>;
+    async fn append_json_row(&mut self, input: &Vec<u8>) -> Result<(), String>;
 }
 
+#[async_trait]
 impl RecordJson for File {
-    async fn append_json_row(&mut input: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    async fn append_json_row(&mut self, input: &Vec<u8>) -> Result<(), String> {
         let json_data: Value = match serde_json::from_slice(&input) {
             Ok(json_data) => json_data,
             Err(e) => {
-                eprintln!("Invalid json data; err = {:?}", e);
-                return Err(Box::new(e));
+                return Err(String::from(format!("Invalid json data; err = {:?}", e)));
             }
         };
 
+        match self.write_all(&json_data.to_string().into_bytes()).await {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(String::from(format!(
+                    "Failed to write to file; err = {:?}",
+                    e
+                )));
+            }
+        }
         Ok(())
     }
 }
@@ -25,9 +36,29 @@ impl RecordJson for File {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut listener = TcpListener::bind("127.0.0.1:6969").await?;
+    let mut file = OpenOptions::new()
+        .read(true)
+        .append(true)
+        .create(true)
+        .open("log_records.json")
+        .await?;
+    let (tx, mut rx) = mpsc::channel(1024);
+
+    tokio::spawn(async move {
+        while let Some(res) = rx.recv().await {
+            match file.append_json_row(&res).await {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("failed to write JSON to file; err = {:?}", e);
+                    return;
+                }
+            };
+        }
+    });
 
     loop {
         let (mut socket, _) = listener.accept().await?;
+        let mut tx = tx.clone();
 
         tokio::spawn(async move {
             let mut input_vec: Vec<u8> = Vec::new();
@@ -48,7 +79,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 input_vec.extend_from_slice(&buf[..n]);
             }
 
-            let res = record_input(input_vec).await?;
+            match tx.send(input_vec).await {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("failed write received message to channel; err = {:?}", e);
+                    return;
+                }
+            }
         });
     }
 }
