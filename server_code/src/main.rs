@@ -12,6 +12,8 @@ trait RecordJson {
 
 #[async_trait]
 impl RecordJson for File {
+    // Add custom trait to the tokio::fs::File to append json to the open file
+    // Takes a raw buffer for data, makes sure it is valid JSON, then appends
     async fn append_json_row(&mut self, input: &Vec<u8>) -> Result<(), String> {
         let json_data: Value = match serde_json::from_slice(&input) {
             Ok(json_data) => json_data,
@@ -20,7 +22,10 @@ impl RecordJson for File {
             }
         };
 
-        match self.write_all(&json_data.to_string().into_bytes()).await {
+        // One record per line
+        let mut j_string: String = json_data.to_string();
+        j_string.push('\n');
+        match self.write_all(&j_string.into_bytes()).await {
             Ok(_) => (),
             Err(e) => {
                 return Err(String::from(format!(
@@ -35,6 +40,10 @@ impl RecordJson for File {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // setup:
+    // bind to local port (we are using ssh iptunnelling to communicate over the internet)
+    // Open log file ready to append new rows
+    // Open channels to syncronise the writing to the log file.
     let mut listener = TcpListener::bind("127.0.0.1:6969").await?;
     let mut file = OpenOptions::new()
         .read(true)
@@ -42,10 +51,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .create(true)
         .open("log_records.json")
         .await?;
-    let (tx, mut rx) = mpsc::channel(1024);
+    let (producer, mut consumer) = mpsc::channel(1024);
 
+    // start a separate co-routine to hanled appending to the logfile
     tokio::spawn(async move {
-        while let Some(res) = rx.recv().await {
+        while let Some(res) = consumer.recv().await {
             match file.append_json_row(&res).await {
                 Ok(_) => (),
                 Err(e) => {
@@ -57,14 +67,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     loop {
+        // For each connection start a new producer channel
         let (mut socket, _) = listener.accept().await?;
-        let mut tx = tx.clone();
+        let mut producer = producer.clone();
 
+        // Each socket is handled in their own co-routine
         tokio::spawn(async move {
             let mut input_vec: Vec<u8> = Vec::new();
             let mut buf = [0; 1024];
 
-            // In a loop, read data from the socket and write the data back.
+            // In a loop, read data from the socket in 1k chunks.
             loop {
                 let n = match socket.read(&mut buf).await {
                     // socket closed
@@ -76,10 +88,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 };
 
+                // extends from slice copies the data
                 input_vec.extend_from_slice(&buf[..n]);
             }
 
-            match tx.send(input_vec).await {
+            // Send the read data to the channel to be processed later
+            // The producer falling out of scope closes this channel letting the consumer
+            // know when this message has ended
+            match producer.send(input_vec).await {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("failed write received message to channel; err = {:?}", e);
