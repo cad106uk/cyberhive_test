@@ -27,7 +27,7 @@ async def get_processes():
 
 
 async def main():
-    (_, writer) = await asyncio.open_connection(host="localhost", port=8080)
+    (_, writer) = await asyncio.open_connection(host="localhost", port=7777)
     json_data = json.dumps([row async for row in get_processes()])
     writer.write(json_data.encode())
 
