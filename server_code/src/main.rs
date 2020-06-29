@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde_json::Value;
+use std::process::exit;
 use tokio::fs::{File, OpenOptions};
 use tokio::net::TcpListener;
 use tokio::prelude::*;
@@ -34,6 +35,15 @@ impl RecordJson for File {
                 )));
             }
         };
+        match self.sync_all().await {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(String::from(format!(
+                    "Failed to write to file; err = {:?}",
+                    e
+                )));
+            }
+        };
         Ok(())
     }
 }
@@ -60,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("failed to write JSON to file; err = {:?}", e);
-                    return;
+                    exit(1)
                 }
             };
         }
@@ -84,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Ok(n) => n,
                     Err(e) => {
                         eprintln!("failed to read from socket; err = {:?}", e);
-                        return;
+                        exit(1)
                     }
                 };
 
@@ -99,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("failed write received message to channel; err = {:?}", e);
-                    return;
+                    exit(1)
                 }
             }
         });
