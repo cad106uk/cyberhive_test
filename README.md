@@ -78,3 +78,5 @@ The EC2 instances are running centos7, which is just about obsolete. Any rust co
 My first attempt to fix this was to compile and add the GLIBC_2.18 library the to LD_LIBRARY_PATH. This did not work and just caused everything to throw a segmentation fault.
 
 My second attempt to fix this is to install rustup on the server machine and compile the rust program there. This worked
+
+Forgot to flush and cleant he sockets for the client end. Now fixed
