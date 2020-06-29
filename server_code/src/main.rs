@@ -53,6 +53,7 @@ impl RecordJson for File {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting server");
     // setup:
     // bind to local port (we are using ssh iptunnelling to communicate over the internet)
     // Open log file ready to append new rows
@@ -83,6 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     loop {
+        println!("loop iter for tcp");
         // For each connection start a new producer channel
         let (mut socket, _) = listener.accept().await?;
         let mut producer = producer.clone();
