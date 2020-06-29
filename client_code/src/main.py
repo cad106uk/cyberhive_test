@@ -36,7 +36,9 @@ async def show_processes():
     # Send the data
     (_, writer) = await asyncio.open_connection(host="localhost", port=7777)
     writer.write(json_data)
+    await writer.drain()
     print("Sent to server")
+    writer.close()
 
 
 async def main():
