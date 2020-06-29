@@ -26,10 +26,20 @@ async def get_processes():
         yield output
 
 
-async def main():
-    (_, writer) = await asyncio.open_connection(host="localhost", port=7777)
+async def show_processes():
+    # Perpare the data
     json_data = json.dumps([row async for row in get_processes()])
-    writer.write(json_data.encode())
+    json_data = json_data.encode()
+
+    # Send the data
+    (_, writer) = await asyncio.open_connection(host="localhost", port=7777)
+    writer.write(json_data)
+
+
+async def main():
+    while True:
+        await show_processes()
+        await asyncio.sleep(5)
 
 
 asyncio.run(main())

@@ -33,7 +33,7 @@ impl RecordJson for File {
                     e
                 )));
             }
-        }
+        };
         Ok(())
     }
 }
