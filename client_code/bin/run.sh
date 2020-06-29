@@ -4,7 +4,7 @@ python3 -m venv client_venv
 source client_venv/bin/activate
 
 pushd ..
-python3 pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 python3 src/main.py
 popd
 deactivate
