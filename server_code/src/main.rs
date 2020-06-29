@@ -19,7 +19,9 @@ impl RecordJson for File {
         let json_data: Value = match serde_json::from_slice(&input) {
             Ok(json_data) => json_data,
             Err(e) => {
-                return Err(String::from(format!("Invalid json data; err = {:?}", e)));
+                let error = format!("Invalid json data; err = {:?}", e);
+                println!("{}", error);
+                return Err(String::from(error));
             }
         };
 
@@ -29,15 +31,16 @@ impl RecordJson for File {
         match self.write_all(&j_string.into_bytes()).await {
             Ok(_) => (),
             Err(e) => {
-                return Err(String::from(format!(
-                    "Failed to write to file; err = {:?}",
-                    e
-                )));
+                let error = format!("Failed to write to file; err = {:?}", e);
+                println!("{}", error);
+                return Err(String::from(error));
             }
         };
         match self.sync_all().await {
             Ok(_) => (),
             Err(e) => {
+                let error = format!("Failed to write to file; err = {:?}", e);
+                println!("{}", error);
                 return Err(String::from(format!(
                     "Failed to write to file; err = {:?}",
                     e
@@ -65,10 +68,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // start a separate co-routine to hanled appending to the logfile
     tokio::spawn(async move {
+        println!("Starting consumer");
         while let Some(res) = consumer.recv().await {
+            println!("received text");
             match file.append_json_row(&res).await {
                 Ok(_) => (),
                 Err(e) => {
+                    println!("failed to write JSON to file; err = {:?}", e);
                     eprintln!("failed to write JSON to file; err = {:?}", e);
                     exit(1)
                 }
@@ -83,6 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Each socket is handled in their own co-routine
         tokio::spawn(async move {
+            println!("Starting to read socket");
             let mut input_vec: Vec<u8> = Vec::new();
             let mut buf = [0; 1024];
 
@@ -93,6 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Ok(n) if n == 0 => break,
                     Ok(n) => n,
                     Err(e) => {
+                        println!("failed to read from socket; err = {:?}", e);
                         eprintln!("failed to read from socket; err = {:?}", e);
                         exit(1)
                     }
@@ -108,10 +116,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match producer.send(input_vec).await {
                 Ok(_) => (),
                 Err(e) => {
+                    println!("failed write received message to channel; err = {:?}", e);
                     eprintln!("failed write received message to channel; err = {:?}", e);
                     exit(1)
                 }
             }
+            println!("Put message on channel");
         });
     }
 }
