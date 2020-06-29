@@ -38,13 +38,12 @@ async def show_processes():
     writer.write(json_data)
     await writer.drain()
     print("Sent to server")
+    print()
     writer.close()
 
 
 async def main():
-    print("Starting client")
     while True:
-        print("Starting")
         await show_processes()
         await asyncio.sleep(5)
 

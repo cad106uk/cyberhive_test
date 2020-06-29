@@ -16,7 +16,6 @@ impl RecordJson for File {
     // Add custom trait to the tokio::fs::File to append json to the open file
     // Takes a raw buffer for data, makes sure it is valid JSON, then appends
     async fn append_json_row(&mut self, input: &Vec<u8>) -> Result<(), String> {
-        println!("starting to process message");
         let json_data: Value = match serde_json::from_slice(&input) {
             Ok(json_data) => json_data,
             Err(e) => {
@@ -27,10 +26,8 @@ impl RecordJson for File {
         };
 
         // One record per line
-        println!("processed message to json");
         let mut j_string: String = json_data.to_string();
         j_string.push('\n');
-        println!("writing json to file");
         match self.write_all(&j_string.into_bytes()).await {
             Ok(_) => (),
             Err(e) => {
@@ -50,7 +47,6 @@ impl RecordJson for File {
                 )));
             }
         };
-        println!("finshed writing message");
         Ok(())
     }
 }
@@ -91,7 +87,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     loop {
-        println!("loop iter for tcp");
         // For each connection start a new producer channel
         let (mut socket, _) = listener.accept().await?;
         let mut producer = producer.clone();
@@ -104,7 +99,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // In a loop, read data from the socket in 1k chunks.
             loop {
-                println!("Reading chunk");
                 let n = match socket.read(&mut buf).await {
                     // socket closed
                     Ok(n) if n == 0 => break,
@@ -123,7 +117,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Send the read data to the channel to be processed later
             // The producer falling out of scope closes this channel letting the consumer
             // know when this message has ended
-            println!("putting message on channel");
             match producer.send(input_vec).await {
                 Ok(_) => {
                     println!("Message on channel");
@@ -135,7 +128,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     exit(1)
                 }
             }
-            println!("Put message on channel");
         });
     }
 }
