@@ -28,16 +28,21 @@ async def get_processes():
 
 async def show_processes():
     # Perpare the data
+    print("Getting process data")
     json_data = json.dumps([row async for row in get_processes()])
     json_data = json_data.encode()
+    print(f"Sending {len(json_data)} bytes")
 
     # Send the data
     (_, writer) = await asyncio.open_connection(host="localhost", port=7777)
     writer.write(json_data)
+    print("Sent to server")
 
 
 async def main():
+    print("Starting client")
     while True:
+        print("Starting")
         await show_processes()
         await asyncio.sleep(5)
 
